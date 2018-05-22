@@ -92,6 +92,7 @@ class VOC:
                 elem.tail = i
 
     def generate(self, data):
+        problem = None
         try:
 
             xml_list = {}
@@ -101,6 +102,7 @@ class VOC:
             printProgressBar(0, progress_length, prefix='\nVOC Generate:'.ljust(15), suffix='Complete', length=40)
 
             for key in data:
+                problem = key
                 element = data[key]
 
                 xml_annotation = Element("annotation")
@@ -183,7 +185,7 @@ class VOC:
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
 
             msg = "ERROR : {}, moreInfo : {}\t{}\t{}".format(e, exc_type, fname, exc_tb.tb_lineno)
-
+            print('key:', key)
             return False, msg
 
     @staticmethod
@@ -272,7 +274,7 @@ class VOC:
                     "objects": obj
                 }
 
-                data[root.find("filename").text.split(".")[0]] = annotation
+                data[filename.split(".")[0]] = annotation
 
                 printProgressBar(progress_cnt + 1, progress_length, prefix='VOC Parsing:'.ljust(15), suffix='Complete', length=40)
                 progress_cnt += 1
@@ -581,7 +583,7 @@ class YOLO:
         return (round(x,3), round(y,3), round(w,3), round(h,3))
 
     def generate(self, data):
-
+        problem = None
         try:
 
             progress_length =len(data)
@@ -591,26 +593,30 @@ class YOLO:
             result = {}
 
             for key in data:
-                img_width = int(data[key]["size"]["width"])
-                img_height = int(data[key]["size"]["height"])
+                problem = key
+                try:
+                    img_width = int(data[key]["size"]["width"])
+                    img_height = int(data[key]["size"]["height"])
 
-                contents = ""
+                    contents = ""
 
-                for idx in range(0, int(data[key]["objects"]["num_obj"])):
+                    for idx in range(0, int(data[key]["objects"]["num_obj"])):
 
-                    xmin = data[key]["objects"][str(idx)]["bndbox"]["xmin"]
-                    ymin = data[key]["objects"][str(idx)]["bndbox"]["ymin"]
-                    xmax = data[key]["objects"][str(idx)]["bndbox"]["xmax"]
-                    ymax = data[key]["objects"][str(idx)]["bndbox"]["ymax"]
+                        xmin = data[key]["objects"][str(idx)]["bndbox"]["xmin"]
+                        ymin = data[key]["objects"][str(idx)]["bndbox"]["ymin"]
+                        xmax = data[key]["objects"][str(idx)]["bndbox"]["xmax"]
+                        ymax = data[key]["objects"][str(idx)]["bndbox"]["ymax"]
 
-                    b = (float(xmin), float(xmax), float(ymin), float(ymax))
-                    bb = self.coordinateCvt2YOLO((img_width, img_height), b)
-                    cls_id = self.cls_list.index(data[key]["objects"][str(idx)]["name"])
+                        b = (float(xmin), float(xmax), float(ymin), float(ymax))
+                        bb = self.coordinateCvt2YOLO((img_width, img_height), b)
+                        cls_id = self.cls_list.index(data[key]["objects"][str(idx)]["name"])
 
-                    bndbox = "".join(["".join([str(e), " "]) for e in bb])
-                    contents = "".join([contents, str(cls_id), " ", bndbox[:-1], "\n"])
+                        bndbox = "".join(["".join([str(e), " "]) for e in bb])
+                        contents = "".join([contents, str(cls_id), " ", bndbox[:-1], "\n"])
 
-                result[key] = contents
+                    result[key] = contents
+                except:
+                    result[key] = ''
 
                 printProgressBar(progress_cnt + 1, progress_length, prefix='YOLO Generating:'.ljust(15),
                                  suffix='Complete',
@@ -625,7 +631,7 @@ class YOLO:
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
 
             msg = "ERROR : {}, moreInfo : {}\t{}\t{}".format(e, exc_type, fname, exc_tb.tb_lineno)
-
+            print('key:', key)
             return False, msg
 
     def save(self, data, save_path, img_path, img_type, manipast_path):
@@ -637,19 +643,22 @@ class YOLO:
             printProgressBar(0, progress_length, prefix='\nYOLO Saving:'.ljust(15), suffix='Complete', length=40)
 
             with open(os.path.abspath(os.path.join(manipast_path, "manifast.txt")), "w") as manipast_file:
-
+                skips = 0
                 for key in data:
-                    manipast_file.write(os.path.abspath(os.path.join(img_path, "".join([key, img_type, "\n"]))))
+                    if not data[key]:
+                        skips += 1
+                    else:
+                        manipast_file.write(os.path.abspath(os.path.join(img_path, "".join([key, img_type, "\n"]))))
 
-                    with open(os.path.abspath(os.path.join(save_path, "".join([key, ".txt"]))), "w") as output_txt_file:
-                        output_txt_file.write(data[key])
+                        with open(os.path.abspath(os.path.join(save_path, "".join([key, ".txt"]))), "w") as output_txt_file:
+                            output_txt_file.write(data[key])
 
 
                     printProgressBar(progress_cnt + 1, progress_length, prefix='YOLO Saving:'.ljust(15),
                                      suffix='Complete',
                                      length=40)
                     progress_cnt += 1
-
+                print('skips:', skips)
             return True, None
 
         except Exception as e:
